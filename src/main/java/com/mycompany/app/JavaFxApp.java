@@ -28,16 +28,35 @@ import com.esri.arcgisruntime.mapping.view.MapView;
 import com.esri.arcgisruntime.symbology.SimpleLineSymbol;
 import com.esri.arcgisruntime.symbology.SimpleMarkerSymbol;
 import javafx.application.Application;
+import javafx.application.Platform;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Scene;
+import javafx.scene.control.Button;
+import javafx.scene.control.TextField;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
+import org.springframework.boot.builder.SpringApplicationBuilder;
+import org.springframework.context.ConfigurableApplicationContext;
 
-public class App extends Application {
+public class JavaFxApp extends Application {
 
+    private ConfigurableApplicationContext applicationContext;
     private MapView mapView;
 
-    public static void main(String[] args) {
+    @Override
+    public void init() {
+        String[] args = getParameters().getRaw().toArray(new String[0]);
 
+        this.applicationContext = new SpringApplicationBuilder()
+                .sources(Main.class)
+                .run(args);
+    }
+
+    public static void main(String[] args) {
         Application.launch(args);
     }
 
@@ -49,6 +68,40 @@ public class App extends Application {
         stage.setWidth(800);
         stage.setHeight(700);
         stage.show();
+
+        GraphicsOverlay graphicsOverlay = new GraphicsOverlay();
+
+//text box
+//        VBox vbCenter = new VBox(); // use any container as center pane e.g. VBox
+//        TextField console = new TextField();
+//        vbCenter.getChildren().add(console);
+
+        FlowPane hbButtons = new FlowPane();
+        hbButtons.setHgap(10);
+        hbButtons.setOpacity(0.9);
+
+        Button scrapeBtn = new Button();
+        scrapeBtn.setText("Очистити");
+        scrapeBtn.setOnAction(event -> {
+            graphicsOverlay.getGraphics().clear();
+        });
+
+        Button addBtn = new Button();
+        addBtn.setText("Відобразити");
+        addBtn.setLineSpacing(10);
+        addBtn.setOnAction(event -> {
+            createPoint(graphicsOverlay, 49.644502, 32.340027);
+        });
+
+        hbButtons.getChildren().add(scrapeBtn);
+        hbButtons.getChildren().add(addBtn);
+        hbButtons.setAlignment(Pos.CENTER_RIGHT);
+
+        // root
+        BorderPane root = new BorderPane();
+        root.setPadding(new Insets(20)); // space between elements and window border
+//        root.setCenter(vbCenter);
+        root.setBottom(hbButtons);
 
         // create a JavaFX scene with a stack pane as the root node and add it to the scene
         StackPane stackPane = new StackPane();
@@ -65,7 +118,7 @@ public class App extends Application {
         // create a MapView to display the map and add it to the stack pane
         mapView = new MapView();
         stackPane.getChildren().add(mapView);
-
+        stackPane.getChildren().add(root);
         // create an ArcGISMap with an imagery basemap
         ArcGISMap map = new ArcGISMap(BasemapStyle.ARCGIS_IMAGERY);
 
@@ -75,13 +128,11 @@ public class App extends Application {
         mapView.setViewpoint(new Viewpoint(48.644502, 31.240027, 10000000));
 
         // create a graphics overlay and add it to the map view
-        GraphicsOverlay graphicsOverlay = new GraphicsOverlay();
         mapView.getGraphicsOverlays().add(graphicsOverlay);
 
         // create a point geometry with a location and spatial reference
 
         //set points
-        createPoint(graphicsOverlay, 49.644502, 32.340027);
     }
 
     private static void createPoint(GraphicsOverlay graphicsOverlay, Double lat, Double lon) {
@@ -100,9 +151,10 @@ public class App extends Application {
      */
     @Override
     public void stop() {
-
+        this.applicationContext.close();
         if (mapView != null) {
             mapView.dispose();
         }
+        Platform.exit();
     }
 }
