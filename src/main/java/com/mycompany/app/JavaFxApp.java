@@ -20,12 +20,12 @@ import com.esri.arcgisruntime.ArcGISRuntimeEnvironment;
 import com.esri.arcgisruntime.geometry.Point;
 import com.esri.arcgisruntime.geometry.SpatialReferences;
 import com.esri.arcgisruntime.mapping.ArcGISMap;
+import com.esri.arcgisruntime.mapping.Basemap;
 import com.esri.arcgisruntime.mapping.BasemapStyle;
 import com.esri.arcgisruntime.mapping.Viewpoint;
 import com.esri.arcgisruntime.mapping.view.Graphic;
 import com.esri.arcgisruntime.mapping.view.GraphicsOverlay;
 import com.esri.arcgisruntime.mapping.view.MapView;
-import com.esri.arcgisruntime.symbology.SimpleLineSymbol;
 import com.esri.arcgisruntime.symbology.SimpleMarkerSymbol;
 import com.mycompany.app.controller.ReportEnvelop;
 import com.mycompany.app.controller.ReportEnvelopItem;
@@ -38,10 +38,16 @@ import javafx.scene.control.Button;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestTemplate;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.concurrent.Flow;
 
 @Component
 public class JavaFxApp extends Application {
@@ -49,8 +55,10 @@ public class JavaFxApp extends Application {
     private ConfigurableApplicationContext applicationContext;
     private MapView mapView;
     private static ReportEnvelop points;
+    private static BasemapStyle currentMapLook;
+    private static Viewpoint viewpoint = new Viewpoint(48.644502, 31.240027, 10000000);
 
-    public void setEnvelope(ReportEnvelop reportEnvelop){
+    public void setEnvelope(ReportEnvelop reportEnvelop) {
         points = reportEnvelop;
     }
 
@@ -86,6 +94,7 @@ public class JavaFxApp extends Application {
         FlowPane hbButtons = new FlowPane();
         hbButtons.setHgap(10);
         hbButtons.setOpacity(0.9);
+        hbButtons.setMaxHeight(1);
 
         Button scrapeBtn = new Button();
         scrapeBtn.setText("Очистити");
@@ -97,23 +106,47 @@ public class JavaFxApp extends Application {
         addBtn.setText("Відобразити");
         addBtn.setLineSpacing(10);
         addBtn.setOnAction(event -> {
-            for (ReportEnvelopItem item : points.getItems()) {
-                createPoint(graphicsOverlay, item.getLat(), item.getLon());
+
+            final String uri = "http://localhost:8081/integration/map-btn-trigger";
+            RestTemplate restTemplate = new RestTemplate();
+            ReportEnvelop result = restTemplate.getForObject(uri, ReportEnvelop.class);
+            assert result != null;
+            for (ReportEnvelopItem item : result.getItems()) {
+                createPoint(graphicsOverlay, item.getLat(), item.getLon(), item.getDangerLevel());
             }
         });
 
+        Button changeMapLook = new Button();
+        changeMapLook.setText("Вигляд");
+        changeMapLook.setOnAction(event -> {
+                    List<BasemapStyle> values = Arrays.asList(BasemapStyle.values());
+                    int currIndex = values.indexOf(currentMapLook);
+                    if (currIndex + 1 > values.size()) {
+                        currIndex = -1;
+                    }
+                    BasemapStyle basemapStyleToSet = values.get(currIndex + 1);
+                    System.out.println(basemapStyleToSet);
+                    ArcGISMap map = new ArcGISMap(basemapStyleToSet);
+                    map.setInitialViewpoint(viewpoint);
+                    // display the map by setting the map on the map view
+                    mapView.getMap().setBasemap(new Basemap(basemapStyleToSet));
+                    currentMapLook = basemapStyleToSet;
+                }
+        );
+
         hbButtons.getChildren().add(scrapeBtn);
         hbButtons.getChildren().add(addBtn);
+        hbButtons.getChildren().add(changeMapLook);
         hbButtons.setAlignment(Pos.CENTER_RIGHT);
 
         // root
-        BorderPane root = new BorderPane();
-        root.setPadding(new Insets(20)); // space between elements and window border
-//        root.setCenter(vbCenter);
-        root.setBottom(hbButtons);
+        BorderPane buttonBorderPaneRoot = new BorderPane();
+        buttonBorderPaneRoot.setPadding(new Insets(10)); // space between elements and window border
+        buttonBorderPaneRoot.setBottom(hbButtons);
 
         // create a JavaFX scene with a stack pane as the root node and add it to the scene
-        StackPane stackPane = new StackPane();
+        VBox stackPane = new VBox();
+        stackPane.setAlignment(Pos.BOTTOM_CENTER);
         Scene scene = new Scene(stackPane);
         stage.setScene(scene);
 
@@ -127,14 +160,16 @@ public class JavaFxApp extends Application {
         // create a MapView to display the map and add it to the stack pane
         mapView = new MapView();
         stackPane.getChildren().add(mapView);
-        stackPane.getChildren().add(root);
+        stackPane.getChildren().add(buttonBorderPaneRoot);
         // create an ArcGISMap with an imagery basemap
-        ArcGISMap map = new ArcGISMap(BasemapStyle.ARCGIS_IMAGERY);
+        ArcGISMap map = new ArcGISMap(BasemapStyle.ARCGIS_DARK_GRAY);
+        currentMapLook = BasemapStyle.ARCGIS_DARK_GRAY;
 
         // display the map by setting the map on the map view
         mapView.setMap(map);
+        mapView.setMinHeight(600);
         //Ukraine viewpoint
-        mapView.setViewpoint(new Viewpoint(48.644502, 31.240027, 10000000));
+        mapView.setViewpoint(viewpoint);
 
         // create a graphics overlay and add it to the map view
         mapView.getGraphicsOverlays().add(graphicsOverlay);
@@ -144,15 +179,28 @@ public class JavaFxApp extends Application {
         //set points
     }
 
-    public static void createPoint(GraphicsOverlay graphicsOverlay, Double lat, Double lon) {
+    public static void createPoint(GraphicsOverlay graphicsOverlay, Double lat, Double lon, String dangerLevel) {
         Point point = new Point(lon, lat, SpatialReferences.getWgs84());
         SimpleMarkerSymbol simpleMarkerSymbol =
-                new SimpleMarkerSymbol(SimpleMarkerSymbol.Style.CIRCLE, 0xFFFF5733, 10);
-        SimpleLineSymbol blueOutlineSymbol =
-                new SimpleLineSymbol(SimpleLineSymbol.Style.SOLID, 0xFF0063FF, 2);
-        simpleMarkerSymbol.setOutline(blueOutlineSymbol);
+                new SimpleMarkerSymbol(SimpleMarkerSymbol.Style.CIRCLE, pickColour(dangerLevel), 10);
         Graphic pointGraphic = new Graphic(point, simpleMarkerSymbol);
         graphicsOverlay.getGraphics().add(pointGraphic);
+    }
+
+    private static int pickColour(String dangerLevel) {
+        switch (dangerLevel) {
+            case "INFO":
+                return 0xfff4fff2;
+            case "LOW":
+                return 0xffa4ff96;
+            case "MEDIUM":
+                return 0xffebff30;
+            case "HIGH":
+                return 0xffff400d;
+            case "EXTREME":
+                return 0xfff000db;
+        }
+        return 0xFFFF5733;
     }
 
     /**
