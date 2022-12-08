@@ -27,25 +27,32 @@ import com.esri.arcgisruntime.mapping.view.GraphicsOverlay;
 import com.esri.arcgisruntime.mapping.view.MapView;
 import com.esri.arcgisruntime.symbology.SimpleLineSymbol;
 import com.esri.arcgisruntime.symbology.SimpleMarkerSymbol;
+import com.mycompany.app.controller.ReportEnvelop;
+import com.mycompany.app.controller.ReportEnvelopItem;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
-import javafx.scene.control.TextField;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.StackPane;
-import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.stereotype.Component;
 
+@Component
 public class JavaFxApp extends Application {
 
     private ConfigurableApplicationContext applicationContext;
     private MapView mapView;
+    private static ReportEnvelop points;
+
+    public void setEnvelope(ReportEnvelop reportEnvelop){
+        points = reportEnvelop;
+    }
 
     @Override
     public void init() {
@@ -90,7 +97,9 @@ public class JavaFxApp extends Application {
         addBtn.setText("Відобразити");
         addBtn.setLineSpacing(10);
         addBtn.setOnAction(event -> {
-            createPoint(graphicsOverlay, 49.644502, 32.340027);
+            for (ReportEnvelopItem item : points.getItems()) {
+                createPoint(graphicsOverlay, item.getLat(), item.getLon());
+            }
         });
 
         hbButtons.getChildren().add(scrapeBtn);
@@ -135,7 +144,7 @@ public class JavaFxApp extends Application {
         //set points
     }
 
-    private static void createPoint(GraphicsOverlay graphicsOverlay, Double lat, Double lon) {
+    public static void createPoint(GraphicsOverlay graphicsOverlay, Double lat, Double lon) {
         Point point = new Point(lon, lat, SpatialReferences.getWgs84());
         SimpleMarkerSymbol simpleMarkerSymbol =
                 new SimpleMarkerSymbol(SimpleMarkerSymbol.Style.CIRCLE, 0xFFFF5733, 10);
