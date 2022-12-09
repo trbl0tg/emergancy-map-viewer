@@ -43,6 +43,8 @@ import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.TextField;
+import javafx.scene.input.KeyCode;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.VBox;
@@ -68,6 +70,7 @@ public class JavaFxApp extends Application {
     private static ComboBox<String> combobox;
     private static ReportEnvelop result;
     private static CheckBox drawPoligon = new CheckBox("Полігональне відображення");
+    private static TextField searchTextField;
 
     public void setEnvelope(ReportEnvelop reportEnvelop) {
         points = reportEnvelop;
@@ -101,11 +104,6 @@ public class JavaFxApp extends Application {
 
         GraphicsOverlay graphicsOverlay = new GraphicsOverlay();
 
-//text box
-//        VBox vbCenter = new VBox(); // use any container as center pane e.g. VBox
-//        TextField console = new TextField();
-//        vbCenter.getChildren().add(console);
-
         FlowPane hbButtons = new FlowPane();
         setupButtonsRow(graphicsOverlay, hbButtons);
 
@@ -113,12 +111,14 @@ public class JavaFxApp extends Application {
         BorderPane buttonBorderPaneRoot = new BorderPane();
         buttonBorderPaneRoot.setPadding(new Insets(10)); // space between elements and window border
         buttonBorderPaneRoot.setBottom(hbButtons);
+        buttonBorderPaneRoot.setStyle("-fx-background-color: rgba(167,168,171,0.96); ");
 
         // create a JavaFX scene with a stack pane as the root node and add it to the scene
         VBox stackPane = new VBox();
         stackPane.setAlignment(Pos.BOTTOM_CENTER);
         Scene scene = new Scene(stackPane);
         stage.setScene(scene);
+        scene.getStylesheets().add("stylesheet.css");
 
         // Note: it is not best practice to store API keys in source code.
         // An API key is required to enable access to services, web maps, and web scenes hosted in ArcGIS Online.
@@ -150,6 +150,8 @@ public class JavaFxApp extends Application {
         // create a graphics overlay and add it to the map view
         mapView.getGraphicsOverlays().add(graphicsOverlay);
 
+        refreshAction(graphicsOverlay);
+
         // create a point geometry with a location and spatial reference
 
         //set points
@@ -161,20 +163,33 @@ public class JavaFxApp extends Application {
         hbButtons.setMaxHeight(1);
         hbButtons.setAlignment(Pos.CENTER_RIGHT);
 
+        searchTextField = new TextField();
+        searchTextField.setMinWidth(400);
+        searchTextField.setOnKeyPressed(event -> {
+            if (event.getCode() == KeyCode.ENTER) {
+
+
+            }
+        });
+
         Button scrapeBtn = new Button();
         scrapeBtn.setText("Очистити");
         scrapeBtn.setOnAction(event -> {
             graphicsOverlay.getGraphics().clear();
         });
 
-        Button refreshButton = new Button();
-        refreshButton.setText("Оновити");
-        refreshButton.setLineSpacing(10);
-        refreshButton.setOnAction(event -> refreshAction(graphicsOverlay));
+        Button refreshBtn = new Button();
+        refreshBtn.setText("Оновити");
+        refreshBtn.setLineSpacing(10);
+        refreshBtn.setOnAction(event -> refreshAction(graphicsOverlay));
 
-        Button changeMapLook = new Button();
-        changeMapLook.setText("Вигляд");
-        changeMapLook.setOnAction(event -> changeMapViewAction());
+        Button changeMapLookBtn = new Button();
+        changeMapLookBtn.setText("Вигляд");
+        changeMapLookBtn.setOnAction(event -> changeMapViewAction());
+
+        Button resetLocationBtn = new Button();
+        resetLocationBtn.setText("Центрувати");
+        resetLocationBtn.setOnAction(event -> mapView.setViewpoint(viewpoint));
 
         ObservableList<String> options =
                 FXCollections.observableArrayList(
@@ -185,14 +200,17 @@ public class JavaFxApp extends Application {
                         "Максимальний"
                 );
         combobox = new ComboBox<>(options);
+        combobox.setValue("Інформація");
         combobox.getSelectionModel().selectedItemProperty().addListener((optionsVal, oldValue, selectedDngrLvl) -> {
             filterAndDrawPoints(graphicsOverlay, result, selectedDngrLvl);
         });
 
+        hbButtons.getChildren().add(searchTextField);
         hbButtons.getChildren().add(drawPoligon);
         hbButtons.getChildren().add(scrapeBtn);
-        hbButtons.getChildren().add(refreshButton);
-        hbButtons.getChildren().add(changeMapLook);
+        hbButtons.getChildren().add(refreshBtn);
+        hbButtons.getChildren().add(changeMapLookBtn);
+        hbButtons.getChildren().add(resetLocationBtn);
         hbButtons.getChildren().add(combobox);
     }
 
@@ -253,7 +271,7 @@ public class JavaFxApp extends Application {
     public static void createPoint(GraphicsOverlay graphicsOverlay, Double lat, Double lon, String dangerLevel) {
         Point point = new Point(lon, lat, SpatialReferences.getWgs84());
         SimpleMarkerSymbol simpleMarkerSymbol =
-                new SimpleMarkerSymbol(SimpleMarkerSymbol.Style.CIRCLE, pickColour(dangerLevel), 10);
+                new SimpleMarkerSymbol(SimpleMarkerSymbol.Style.DIAMOND, pickColour(dangerLevel), 10);
         Graphic pointGraphic = new Graphic(point, simpleMarkerSymbol);
         graphicsOverlay.getGraphics().add(pointGraphic);
     }

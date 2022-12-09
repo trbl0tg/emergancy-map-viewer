@@ -1,0 +1,19 @@
+.button, .combo-box, .text-field{
+    -fx-text-fill: #201e1e;
+    -fx-background-color: #e2e6ea;
+    -fx-background-radius: 2px;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.3), 10, 0.1, 0.0, 0.0);
+
+}
+
+.button{
+    -fx-padding:4px;
+}
+
+.button:hover{
+    -fx-background-color: #cfd6da;
+}
+
+.button:pressed{
+    -fx-background-color: #b0b6b9;
+}
