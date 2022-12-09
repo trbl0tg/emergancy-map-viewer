@@ -18,6 +18,8 @@ package com.mycompany.app;
 
 import com.esri.arcgisruntime.ArcGISRuntimeEnvironment;
 import com.esri.arcgisruntime.geometry.Point;
+import com.esri.arcgisruntime.geometry.PointCollection;
+import com.esri.arcgisruntime.geometry.Polygon;
 import com.esri.arcgisruntime.geometry.SpatialReferences;
 import com.esri.arcgisruntime.mapping.ArcGISMap;
 import com.esri.arcgisruntime.mapping.Basemap;
@@ -26,6 +28,7 @@ import com.esri.arcgisruntime.mapping.Viewpoint;
 import com.esri.arcgisruntime.mapping.view.Graphic;
 import com.esri.arcgisruntime.mapping.view.GraphicsOverlay;
 import com.esri.arcgisruntime.mapping.view.MapView;
+import com.esri.arcgisruntime.symbology.SimpleFillSymbol;
 import com.esri.arcgisruntime.symbology.SimpleMarkerSymbol;
 import com.mycompany.app.controller.ReportEnvelop;
 import com.mycompany.app.controller.ReportEnvelopItem;
@@ -35,12 +38,15 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.geometry.Rectangle2D;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.VBox;
+import javafx.stage.Screen;
 import javafx.stage.Stage;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.context.ConfigurableApplicationContext;
@@ -58,9 +64,10 @@ public class JavaFxApp extends Application {
     private MapView mapView;
     private static ReportEnvelop points;
     private static BasemapStyle currentMapLook;
-    private static Viewpoint viewpoint = new Viewpoint(48.644502, 31.240027, 10000000);
+    private static Viewpoint viewpoint = new Viewpoint(48.944502, 31.240027, 10000000*0.8);
     private static ComboBox<String> combobox;
     private static ReportEnvelop result;
+    private static CheckBox drawPoligon = new CheckBox("Полігональне відображення");
 
     public void setEnvelope(ReportEnvelop reportEnvelop) {
         points = reportEnvelop;
@@ -81,11 +88,15 @@ public class JavaFxApp extends Application {
 
     @Override
     public void start(Stage stage) {
-
-        // set the title and size of the stage and show it
-        stage.setTitle("My Map App");
-        stage.setWidth(800);
-        stage.setHeight(700);
+        Screen screen = Screen.getPrimary();
+        Rectangle2D bounds = screen.getVisualBounds();
+        stage.setTitle("Emergency Bot Map viewer");
+        stage.centerOnScreen();
+        stage.setX(bounds.getMinX());
+        stage.setY(bounds.getMinY());
+        stage.setWidth(bounds.getWidth());
+        stage.setHeight(bounds.getHeight());
+        stage.setFullScreen(true);
         stage.show();
 
         GraphicsOverlay graphicsOverlay = new GraphicsOverlay();
@@ -128,7 +139,11 @@ public class JavaFxApp extends Application {
 
         // display the map by setting the map on the map view
         mapView.setMap(map);
-        mapView.setMinHeight(600);
+//        mapView.setMinHeight(600);
+//        mapView.setX(bounds.getMinX());
+//        mapView.setY(bounds.getMinY());
+        mapView.setMinWidth(bounds.getWidth());
+        mapView.setMinHeight(bounds.getHeight());
         //Ukraine viewpoint
         mapView.setViewpoint(viewpoint);
 
@@ -174,6 +189,7 @@ public class JavaFxApp extends Application {
             filterAndDrawPoints(graphicsOverlay, result, selectedDngrLvl);
         });
 
+        hbButtons.getChildren().add(drawPoligon);
         hbButtons.getChildren().add(scrapeBtn);
         hbButtons.getChildren().add(refreshButton);
         hbButtons.getChildren().add(changeMapLook);
@@ -208,8 +224,18 @@ public class JavaFxApp extends Application {
         if (!filterPoints.isEmpty()) {
             graphicsOverlay.getGraphics().clear();
         }
+        PointCollection polygonPoints = new PointCollection(SpatialReferences.getWgs84());
         for (ReportEnvelopItem item : filterPoints) {
+            polygonPoints.add(item.getLon(), item.getLat());
             createPoint(graphicsOverlay, item.getLat(), item.getLon(), item.getDangerLevel());
+        }
+        if (drawPoligon.isSelected()) {
+            Polygon polygon = new Polygon(polygonPoints);
+            SimpleFillSymbol polygonFillSymbol =
+                    new SimpleFillSymbol(SimpleFillSymbol.Style.SOLID, 0x80FF5733, null);
+            Graphic polygonGraphic = new Graphic(polygon, polygonFillSymbol);
+            // add the polygon graphic to the graphics overlay
+            graphicsOverlay.getGraphics().add(polygonGraphic);
         }
     }
 
