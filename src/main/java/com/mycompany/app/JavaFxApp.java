@@ -31,13 +31,15 @@ import com.mycompany.app.controller.ReportEnvelop;
 import com.mycompany.app.controller.ReportEnvelopItem;
 import javafx.application.Application;
 import javafx.application.Platform;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.control.ComboBox;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.FlowPane;
-import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import org.springframework.boot.builder.SpringApplicationBuilder;
@@ -47,7 +49,7 @@ import org.springframework.web.client.RestTemplate;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.Flow;
+import java.util.stream.Collectors;
 
 @Component
 public class JavaFxApp extends Application {
@@ -57,6 +59,8 @@ public class JavaFxApp extends Application {
     private static ReportEnvelop points;
     private static BasemapStyle currentMapLook;
     private static Viewpoint viewpoint = new Viewpoint(48.644502, 31.240027, 10000000);
+    private static ComboBox<String> combobox;
+    private static ReportEnvelop result;
 
     public void setEnvelope(ReportEnvelop reportEnvelop) {
         points = reportEnvelop;
@@ -92,52 +96,7 @@ public class JavaFxApp extends Application {
 //        vbCenter.getChildren().add(console);
 
         FlowPane hbButtons = new FlowPane();
-        hbButtons.setHgap(10);
-        hbButtons.setOpacity(0.9);
-        hbButtons.setMaxHeight(1);
-
-        Button scrapeBtn = new Button();
-        scrapeBtn.setText("Очистити");
-        scrapeBtn.setOnAction(event -> {
-            graphicsOverlay.getGraphics().clear();
-        });
-
-        Button addBtn = new Button();
-        addBtn.setText("Відобразити");
-        addBtn.setLineSpacing(10);
-        addBtn.setOnAction(event -> {
-
-            final String uri = "http://localhost:8081/integration/map-btn-trigger";
-            RestTemplate restTemplate = new RestTemplate();
-            ReportEnvelop result = restTemplate.getForObject(uri, ReportEnvelop.class);
-            assert result != null;
-            for (ReportEnvelopItem item : result.getItems()) {
-                createPoint(graphicsOverlay, item.getLat(), item.getLon(), item.getDangerLevel());
-            }
-        });
-
-        Button changeMapLook = new Button();
-        changeMapLook.setText("Вигляд");
-        changeMapLook.setOnAction(event -> {
-                    List<BasemapStyle> values = Arrays.asList(BasemapStyle.values());
-                    int currIndex = values.indexOf(currentMapLook);
-                    if (currIndex + 1 > values.size()) {
-                        currIndex = -1;
-                    }
-                    BasemapStyle basemapStyleToSet = values.get(currIndex + 1);
-                    System.out.println(basemapStyleToSet);
-                    ArcGISMap map = new ArcGISMap(basemapStyleToSet);
-                    map.setInitialViewpoint(viewpoint);
-                    // display the map by setting the map on the map view
-                    mapView.getMap().setBasemap(new Basemap(basemapStyleToSet));
-                    currentMapLook = basemapStyleToSet;
-                }
-        );
-
-        hbButtons.getChildren().add(scrapeBtn);
-        hbButtons.getChildren().add(addBtn);
-        hbButtons.getChildren().add(changeMapLook);
-        hbButtons.setAlignment(Pos.CENTER_RIGHT);
+        setupButtonsRow(graphicsOverlay, hbButtons);
 
         // root
         BorderPane buttonBorderPaneRoot = new BorderPane();
@@ -161,6 +120,8 @@ public class JavaFxApp extends Application {
         mapView = new MapView();
         stackPane.getChildren().add(mapView);
         stackPane.getChildren().add(buttonBorderPaneRoot);
+//        stackPane.getChildren().add(rootPane);
+
         // create an ArcGISMap with an imagery basemap
         ArcGISMap map = new ArcGISMap(BasemapStyle.ARCGIS_DARK_GRAY);
         currentMapLook = BasemapStyle.ARCGIS_DARK_GRAY;
@@ -179,12 +140,112 @@ public class JavaFxApp extends Application {
         //set points
     }
 
+    private void setupButtonsRow(GraphicsOverlay graphicsOverlay, FlowPane hbButtons) {
+        hbButtons.setHgap(10);
+        hbButtons.setOpacity(0.9);
+        hbButtons.setMaxHeight(1);
+        hbButtons.setAlignment(Pos.CENTER_RIGHT);
+
+        Button scrapeBtn = new Button();
+        scrapeBtn.setText("Очистити");
+        scrapeBtn.setOnAction(event -> {
+            graphicsOverlay.getGraphics().clear();
+        });
+
+        Button refreshButton = new Button();
+        refreshButton.setText("Оновити");
+        refreshButton.setLineSpacing(10);
+        refreshButton.setOnAction(event -> refreshAction(graphicsOverlay));
+
+        Button changeMapLook = new Button();
+        changeMapLook.setText("Вигляд");
+        changeMapLook.setOnAction(event -> changeMapViewAction());
+
+        ObservableList<String> options =
+                FXCollections.observableArrayList(
+                        "Інформація",
+                        "Низький",
+                        "Середній",
+                        "Високий",
+                        "Максимальний"
+                );
+        combobox = new ComboBox<>(options);
+        combobox.getSelectionModel().selectedItemProperty().addListener((optionsVal, oldValue, selectedDngrLvl) -> {
+            filterAndDrawPoints(graphicsOverlay, result, selectedDngrLvl);
+        });
+
+        hbButtons.getChildren().add(scrapeBtn);
+        hbButtons.getChildren().add(refreshButton);
+        hbButtons.getChildren().add(changeMapLook);
+        hbButtons.getChildren().add(combobox);
+    }
+
+    private void changeMapViewAction() {
+        List<BasemapStyle> values = Arrays.asList(BasemapStyle.values());
+        int currIndex = values.indexOf(currentMapLook);
+        if (currIndex + 1 > values.size()) {
+            currIndex = -1;
+        }
+        BasemapStyle basemapStyleToSet = values.get(currIndex + 1);
+        System.out.println(basemapStyleToSet);
+        ArcGISMap map = new ArcGISMap(basemapStyleToSet);
+        map.setInitialViewpoint(viewpoint);
+        // display the map by setting the map on the map view
+        mapView.getMap().setBasemap(new Basemap(basemapStyleToSet));
+        currentMapLook = basemapStyleToSet;
+    }
+
+    private static void refreshAction(GraphicsOverlay graphicsOverlay) {
+        final String uri = "http://localhost:8081/integration/map-btn-trigger";
+        RestTemplate restTemplate = new RestTemplate();
+        result = restTemplate.getForObject(uri, ReportEnvelop.class);
+        assert result != null;
+        filterAndDrawPoints(graphicsOverlay, result, null);
+    }
+
+    private static void filterAndDrawPoints(GraphicsOverlay graphicsOverlay, ReportEnvelop result, String selectedDngrLvl) {
+        List<ReportEnvelopItem> filterPoints = filterPoints(result, selectedDngrLvl);
+        if (!filterPoints.isEmpty()) {
+            graphicsOverlay.getGraphics().clear();
+        }
+        for (ReportEnvelopItem item : filterPoints) {
+            createPoint(graphicsOverlay, item.getLat(), item.getLon(), item.getDangerLevel());
+        }
+    }
+
+    private static List<ReportEnvelopItem> filterPoints(ReportEnvelop result, String filterParam) {
+        if (filterParam != null) {
+            String accessibleText = String.valueOf(combobox.getValue());
+            String dangerLevelText = textToDangerLevelString(accessibleText);
+            return result.getItems().stream()
+                    .filter(reportEnvelopItem -> reportEnvelopItem.getDangerLevel().equals(dangerLevelText))
+                    .collect(Collectors.toList());
+        }
+        return result.getItems();
+    }
+
     public static void createPoint(GraphicsOverlay graphicsOverlay, Double lat, Double lon, String dangerLevel) {
         Point point = new Point(lon, lat, SpatialReferences.getWgs84());
         SimpleMarkerSymbol simpleMarkerSymbol =
                 new SimpleMarkerSymbol(SimpleMarkerSymbol.Style.CIRCLE, pickColour(dangerLevel), 10);
         Graphic pointGraphic = new Graphic(point, simpleMarkerSymbol);
         graphicsOverlay.getGraphics().add(pointGraphic);
+    }
+
+    public static String textToDangerLevelString(String dangerLevel) {
+        switch (dangerLevel) {
+            case "Інформація":
+                return "INFO";
+            case "Низький":
+                return "LOW";
+            case "Середній":
+                return "MEDIUM";
+            case "Високий":
+                return "HIGH";
+            case "Максимальний":
+                return "EXTREME";
+        }
+        return "MEDIUM";
     }
 
     private static int pickColour(String dangerLevel) {
