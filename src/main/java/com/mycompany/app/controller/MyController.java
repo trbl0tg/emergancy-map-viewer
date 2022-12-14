@@ -18,9 +18,4 @@ public class MyController {
         fxApp.setEnvelope(body);
         return "Success";
     }
-
-//    @GetMapping
-//    public void hello() {
-//        System.out.println("draw!");
-//    }
 }

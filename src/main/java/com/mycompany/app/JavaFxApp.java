@@ -56,6 +56,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -242,8 +243,9 @@ public class JavaFxApp extends Application {
         if (!filterPoints.isEmpty()) {
             graphicsOverlay.getGraphics().clear();
         }
+        List<ReportEnvelopItem> collect = filterPoints.stream().sorted(Comparator.comparingDouble(ReportEnvelopItem::getLat)).collect(Collectors.toList());
         PointCollection polygonPoints = new PointCollection(SpatialReferences.getWgs84());
-        for (ReportEnvelopItem item : filterPoints) {
+        for (ReportEnvelopItem item : collect) {
             polygonPoints.add(item.getLon(), item.getLat());
             createPoint(graphicsOverlay, item.getLat(), item.getLon(), item.getDangerLevel());
         }
